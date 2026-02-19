@@ -1,7 +1,7 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import sql from "@/lib/db";
-import { searchByName, searchByBarcode } from "@/lib/openfoodfacts";
+import { searchByName, searchByBarcode, addProduct, updateProduct } from "@/lib/openfoodfacts";
 import { searchUSDA } from "@/lib/usda";
 
 const handler = createMcpHandler(
@@ -52,6 +52,95 @@ const handler = createMcpHandler(
         }
         return {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+    );
+
+    server.tool(
+      "add_product_to_open_food_facts",
+      "Add a new product to the Open Food Facts database so it can be found by barcode in future searches. Use this when a barcode lookup returns no results and the user has product details (e.g. from a photo of the nutrition label).",
+      {
+        code: z.string().describe("Product barcode (EAN-13, UPC-A, etc.)"),
+        product_name: z.string().describe("Product name as shown on packaging"),
+        brands: z.string().optional().describe("Brand name(s), comma-separated"),
+        quantity: z.string().optional().describe("Package size (e.g. '500 ml', '1 kg')"),
+        serving_size: z.string().optional().describe("Serving size (e.g. '38g', '250 ml')"),
+        categories: z.string().optional().describe("Product categories, comma-separated (e.g. 'Beverages, Orange Juices')"),
+        ingredients_text: z.string().optional().describe("Full ingredients list as printed on the label"),
+        nutrition_data_per: z.enum(["100g", "serving"]).optional().describe("Whether nutrition values are per 100g or per serving. Defaults to 100g."),
+        calories: z.number().optional().describe("Energy in kcal"),
+        fat: z.number().optional().describe("Total fat in grams"),
+        saturated_fat: z.number().optional().describe("Saturated fat in grams"),
+        carbs: z.number().optional().describe("Carbohydrates in grams"),
+        sugars: z.number().optional().describe("Sugars in grams"),
+        fiber: z.number().optional().describe("Fiber in grams"),
+        protein: z.number().optional().describe("Protein in grams"),
+        salt: z.number().optional().describe("Salt in grams"),
+      },
+      async (input) => {
+        const result = await addProduct(input);
+        if (result.status === 1) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Product added to Open Food Facts: ${input.product_name} (barcode: ${input.code}). Status: ${result.status_verbose}`,
+              },
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to add product: ${result.status_verbose}`,
+            },
+          ],
+        };
+      }
+    );
+
+    server.tool(
+      "update_product_on_open_food_facts",
+      "Update an existing product on Open Food Facts. Only the fields you provide will be changed; others remain as-is.",
+      {
+        code: z.string().describe("Product barcode to update"),
+        product_name: z.string().optional().describe("Corrected product name"),
+        brands: z.string().optional().describe("Corrected brand name(s)"),
+        quantity: z.string().optional().describe("Corrected package size (e.g. '500 ml')"),
+        serving_size: z.string().optional().describe("Corrected serving size (e.g. '38g')"),
+        categories: z.string().optional().describe("Corrected categories, comma-separated"),
+        ingredients_text: z.string().optional().describe("Corrected ingredients list"),
+        nutrition_data_per: z.enum(["100g", "serving"]).optional().describe("Whether nutrition values are per 100g or per serving"),
+        calories: z.number().optional().describe("Corrected energy in kcal"),
+        fat: z.number().optional().describe("Corrected total fat in grams"),
+        saturated_fat: z.number().optional().describe("Corrected saturated fat in grams"),
+        carbs: z.number().optional().describe("Corrected carbohydrates in grams"),
+        sugars: z.number().optional().describe("Corrected sugars in grams"),
+        fiber: z.number().optional().describe("Corrected fiber in grams"),
+        protein: z.number().optional().describe("Corrected protein in grams"),
+        salt: z.number().optional().describe("Corrected salt in grams"),
+        comment: z.string().optional().describe("Reason for the edit (shown in product history)"),
+      },
+      async (input) => {
+        const result = await updateProduct(input);
+        if (result.status === 1) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Product updated on Open Food Facts (barcode: ${input.code}). Status: ${result.status_verbose}`,
+              },
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to update product: ${result.status_verbose}`,
+            },
+          ],
         };
       }
     );
