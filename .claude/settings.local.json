@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:world.openfoodsfacts.org)",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:wiki.openfoodsfacts.org)",
+      "WebFetch(domain:blog.openfoodsfacts.org)",
+      "WebFetch(domain:openfoodfacts.github.io)",
+      "WebFetch(domain:publicapi.dev)",
+      "WebFetch(domain:vercel.com)",
+      "Bash(bun:*)",
+      "Bash(node --version:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:www.mcphandler.org)",
+      "WebFetch(domain:support.claude.com)",
+      "WebFetch(domain:world.openfoodfacts.net)",
+      "WebFetch(domain:nitro.build)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:docs.roocode.com)",
+      "WebFetch(domain:developers.cloudflare.com)"
+    ]
+  }
+}
