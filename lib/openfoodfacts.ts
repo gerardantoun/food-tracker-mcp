@@ -2,6 +2,9 @@ const USER_AGENT = "FoodTrackerMCP/1.0";
 
 export interface NutritionResult {
   product_name: string;
+  brand?: string;
+  quantity?: string;
+  serving_size?: string;
   code?: string;
   calories_per_100g: number;
   protein_per_100g: number;
@@ -11,6 +14,9 @@ export interface NutritionResult {
 
 function normalize(product: {
   product_name?: string;
+  brands?: string;
+  quantity?: string;
+  serving_size?: string;
   code?: string;
   nutriments?: Record<string, number>;
 }): NutritionResult | null {
@@ -18,6 +24,9 @@ function normalize(product: {
 
   return {
     product_name: product.product_name,
+    brand: product.brands || undefined,
+    quantity: product.quantity || undefined,
+    serving_size: product.serving_size || undefined,
     code: product.code,
     calories_per_100g: product.nutriments["energy-kcal_100g"] ?? 0,
     protein_per_100g: product.nutriments["proteins_100g"] ?? 0,
@@ -28,7 +37,7 @@ function normalize(product: {
 
 export async function searchByName(query: string): Promise<NutritionResult[]> {
   const res = await fetch(
-    `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&fields=code,product_name,nutriments&page_size=5`,
+    `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&fields=code,product_name,brands,quantity,serving_size,nutriments&page_size=5`,
     { headers: { "User-Agent": USER_AGENT }, cache: "no-store" }
   );
 
@@ -45,7 +54,7 @@ export async function searchByBarcode(
   barcode: string
 ): Promise<NutritionResult | null> {
   const res = await fetch(
-    `https://world.openfoodfacts.net/api/v2/product/${encodeURIComponent(barcode)}?fields=product_name,nutriments`,
+    `https://world.openfoodfacts.net/api/v2/product/${encodeURIComponent(barcode)}?fields=product_name,brands,quantity,serving_size,nutriments`,
     { headers: { "User-Agent": USER_AGENT }, cache: "no-store" }
   );
 

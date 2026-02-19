@@ -2,15 +2,25 @@ import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import sql from "@/lib/db";
 import { searchByName, searchByBarcode } from "@/lib/openfoodfacts";
+import { searchUSDA } from "@/lib/usda";
 
 const handler = createMcpHandler(
   (server) => {
     server.tool(
       "search_food_by_name",
-      "Search Open Food Facts for a food by name. Returns up to 5 results with nutritional info per 100g.",
+      "Search for a food by name. Queries both Open Food Facts (packaged products) and USDA (raw/generic foods like fruits, meats, grains). Returns up to 10 results with nutritional info per 100g.",
       { query: z.string().describe("Food name to search for") },
       async ({ query }) => {
-        const results = await searchByName(query);
+        const [offResults, usdaResults] = await Promise.all([
+          searchByName(query).catch(() => []),
+          searchUSDA(query).catch(() => []),
+        ]);
+
+        const results = [
+          ...usdaResults.map((r) => ({ ...r, source: "USDA" as const })),
+          ...offResults.map((r) => ({ ...r, source: "OpenFoodFacts" as const })),
+        ];
+
         if (results.length === 0) {
           return {
             content: [
@@ -87,7 +97,7 @@ const handler = createMcpHandler(
       "update_log_entry",
       "Update an existing food log entry to correct any of its fields.",
       {
-        id: z.number().describe("ID of the food log entry to update"),
+        id: z.string().describe("UUID of the food log entry to update"),
         name: z.string().optional().describe("Corrected food name"),
         calories: z.number().optional().describe("Corrected calories (kcal)"),
         protein: z.number().optional().describe("Corrected protein (g)"),
@@ -151,7 +161,7 @@ const handler = createMcpHandler(
       "delete_log_entry",
       "Delete a food log entry that was added by mistake.",
       {
-        id: z.number().describe("ID of the food log entry to delete"),
+        id: z.string().describe("UUID of the food log entry to delete"),
       },
       async ({ id }) => {
         const result = await sql`
