@@ -84,6 +84,102 @@ const handler = createMcpHandler(
     );
 
     server.tool(
+      "update_log_entry",
+      "Update an existing food log entry to correct any of its fields.",
+      {
+        id: z.number().describe("ID of the food log entry to update"),
+        name: z.string().optional().describe("Corrected food name"),
+        calories: z.number().optional().describe("Corrected calories (kcal)"),
+        protein: z.number().optional().describe("Corrected protein (g)"),
+        carbs: z.number().optional().describe("Corrected carbohydrates (g)"),
+        fat: z.number().optional().describe("Corrected fat (g)"),
+        amount_g: z.number().optional().describe("Corrected amount in grams"),
+        timestamp: z
+          .string()
+          .optional()
+          .describe("Corrected ISO 8601 timestamp for when the food was eaten"),
+      },
+      async ({ id, name, calories, protein, carbs, fat, amount_g, timestamp }) => {
+        const fields: Record<string, unknown> = {};
+        if (name !== undefined) fields.name = name;
+        if (calories !== undefined) fields.calories = calories;
+        if (protein !== undefined) fields.protein = protein;
+        if (carbs !== undefined) fields.carbs = carbs;
+        if (fat !== undefined) fields.fat = fat;
+        if (amount_g !== undefined) fields.amount_g = amount_g;
+        if (timestamp !== undefined) fields.logged_at = new Date(timestamp);
+
+        if (Object.keys(fields).length === 0) {
+          return {
+            content: [
+              { type: "text", text: "No fields provided to update." },
+            ],
+          };
+        }
+
+        const setClauses = Object.keys(fields)
+          .map((key, i) => `${key} = $${i + 2}`)
+          .join(", ");
+        const values = [id, ...Object.values(fields)] as (string | number | Date)[];
+
+        const result = await sql.unsafe(
+          `UPDATE food_log SET ${setClauses} WHERE id = $1 RETURNING id, name, calories, protein, carbs, fat, amount_g, logged_at`,
+          values
+        );
+
+        if (result.length === 0) {
+          return {
+            content: [
+              { type: "text", text: `No food log entry found with id ${id}.` },
+            ],
+          };
+        }
+
+        const row = result[0];
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Updated entry ${row!.id}: ${row!.name} (${row!.amount_g}g) — ${row!.calories} kcal, ${row!.protein}g protein, ${row!.carbs}g carbs, ${row!.fat}g fat at ${row!.logged_at}`,
+            },
+          ],
+        };
+      }
+    );
+
+    server.tool(
+      "delete_log_entry",
+      "Delete a food log entry that was added by mistake.",
+      {
+        id: z.number().describe("ID of the food log entry to delete"),
+      },
+      async ({ id }) => {
+        const result = await sql`
+          DELETE FROM food_log WHERE id = ${id}
+          RETURNING id, name, calories, protein, carbs, fat, amount_g, logged_at
+        `;
+
+        if (result.length === 0) {
+          return {
+            content: [
+              { type: "text", text: `No food log entry found with id ${id}.` },
+            ],
+          };
+        }
+
+        const row = result[0];
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Deleted entry ${row!.id}: ${row!.name} (${row!.amount_g}g) — ${row!.calories} kcal, ${row!.protein}g protein, ${row!.carbs}g carbs, ${row!.fat}g fat`,
+            },
+          ],
+        };
+      }
+    );
+
+    server.tool(
       "get_today",
       "Get all food entries logged today (UTC) with per-item details and aggregated totals.",
       {},
