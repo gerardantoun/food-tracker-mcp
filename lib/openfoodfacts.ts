@@ -27,14 +27,10 @@ function normalize(product: {
 }
 
 export async function searchByName(query: string): Promise<NutritionResult[]> {
-  const url = new URL("https://world.openfoodfacts.org/api/v2/search");
-  url.searchParams.set("q", query);
-  url.searchParams.set("fields", "code,product_name,nutriments");
-  url.searchParams.set("page_size", "5");
-
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT },
-  });
+  const res = await fetch(
+    `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&fields=code,product_name,nutriments&page_size=5`,
+    { headers: { "User-Agent": USER_AGENT }, cache: "no-store" }
+  );
 
   if (!res.ok) throw new Error(`Open Food Facts search failed: ${res.status}`);
 
@@ -49,8 +45,8 @@ export async function searchByBarcode(
   barcode: string
 ): Promise<NutritionResult | null> {
   const res = await fetch(
-    `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}?fields=product_name,nutriments`,
-    { headers: { "User-Agent": USER_AGENT } }
+    `https://world.openfoodfacts.net/api/v2/product/${encodeURIComponent(barcode)}?fields=product_name,nutriments`,
+    { headers: { "User-Agent": USER_AGENT }, cache: "no-store" }
   );
 
   if (!res.ok) throw new Error(`Open Food Facts lookup failed: ${res.status}`);

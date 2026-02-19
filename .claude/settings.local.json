@@ -21,7 +21,19 @@
       "WebFetch(domain:nitro.build)",
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:docs.roocode.com)",
-      "WebFetch(domain:developers.cloudflare.com)"
+      "WebFetch(domain:developers.cloudflare.com)",
+      "mcp__supabase_write__list_tables",
+      "mcp__supabase_write__apply_migration",
+      "Bash(curl:*)",
+      "Bash(npx vercel link:*)",
+      "Bash(python:*)",
+      "Bash(grep:*)",
+      "Bash(npm info:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase_write"
+  ]
 }
