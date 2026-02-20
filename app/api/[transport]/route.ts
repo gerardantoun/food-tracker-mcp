@@ -161,21 +161,26 @@ const handler = createMcpHandler(
           .describe(
             "ISO 8601 timestamp for when the food was eaten. Defaults to now."
           ),
+        source: z
+          .enum(["estimation", "openfoodfacts", "usda", "online", "label", "user"])
+          .describe(
+            "Where the nutritional data came from. Use \"openfoodfacts\" if the values came from an Open Food Facts search or barcode lookup. Use \"usda\" if they came from a USDA database search. Use \"online\" if you found the data via a web search. Use \"estimation\" if you (the LLM) estimated or approximated the values from your own knowledge. Use \"label\" if the user read the nutrition facts directly from the product packaging. Use \"user\" if the user provided the values themselves without specifying where they got them."
+          ),
       },
-      async ({ name, calories, protein, carbs, fat, amount_g, timestamp }) => {
+      async ({ name, calories, protein, carbs, fat, amount_g, timestamp, source }) => {
         const loggedAt = timestamp ? new Date(timestamp) : new Date();
 
         const [row] = await sql`
-          INSERT INTO food_log (name, calories, protein, carbs, fat, amount_g, logged_at)
-          VALUES (${name}, ${calories}, ${protein}, ${carbs}, ${fat}, ${amount_g}, ${loggedAt})
-          RETURNING id, name, calories, protein, carbs, fat, amount_g, logged_at
+          INSERT INTO food_log (name, calories, protein, carbs, fat, amount_g, logged_at, source)
+          VALUES (${name}, ${calories}, ${protein}, ${carbs}, ${fat}, ${amount_g}, ${loggedAt}, ${source})
+          RETURNING id, name, calories, protein, carbs, fat, amount_g, logged_at, source
         `;
 
         return {
           content: [
             {
               type: "text",
-              text: `Logged ${row!.id}: ${row!.name} (${row!.amount_g}g) — ${row!.calories} kcal, ${row!.protein}g protein, ${row!.carbs}g carbs, ${row!.fat}g fat at ${row!.logged_at}`,
+              text: `Logged ${row!.id}: ${row!.name} (${row!.amount_g}g) — ${row!.calories} kcal, ${row!.protein}g protein, ${row!.carbs}g carbs, ${row!.fat}g fat at ${row!.logged_at} [source: ${row!.source}]`,
             },
           ],
         };
@@ -197,8 +202,12 @@ const handler = createMcpHandler(
           .string()
           .optional()
           .describe("Corrected ISO 8601 timestamp for when the food was eaten"),
+        source: z
+          .enum(["estimation", "openfoodfacts", "usda", "online", "label", "user"])
+          .optional()
+          .describe("Corrected data source"),
       },
-      async ({ id, name, calories, protein, carbs, fat, amount_g, timestamp }) => {
+      async ({ id, name, calories, protein, carbs, fat, amount_g, timestamp, source }) => {
         const fields: Record<string, unknown> = {};
         if (name !== undefined) fields.name = name;
         if (calories !== undefined) fields.calories = calories;
@@ -207,6 +216,7 @@ const handler = createMcpHandler(
         if (fat !== undefined) fields.fat = fat;
         if (amount_g !== undefined) fields.amount_g = amount_g;
         if (timestamp !== undefined) fields.logged_at = new Date(timestamp);
+        if (source !== undefined) fields.source = source;
 
         if (Object.keys(fields).length === 0) {
           return {
@@ -222,7 +232,7 @@ const handler = createMcpHandler(
         const values = [id, ...Object.values(fields)] as (string | number | Date)[];
 
         const result = await sql.unsafe(
-          `UPDATE food_log SET ${setClauses} WHERE id = $1 RETURNING id, name, calories, protein, carbs, fat, amount_g, logged_at`,
+          `UPDATE food_log SET ${setClauses} WHERE id = $1 RETURNING id, name, calories, protein, carbs, fat, amount_g, logged_at, source`,
           values
         );
 
@@ -239,7 +249,7 @@ const handler = createMcpHandler(
           content: [
             {
               type: "text",
-              text: `Updated entry ${row!.id}: ${row!.name} (${row!.amount_g}g) — ${row!.calories} kcal, ${row!.protein}g protein, ${row!.carbs}g carbs, ${row!.fat}g fat at ${row!.logged_at}`,
+              text: `Updated entry ${row!.id}: ${row!.name} (${row!.amount_g}g) — ${row!.calories} kcal, ${row!.protein}g protein, ${row!.carbs}g carbs, ${row!.fat}g fat at ${row!.logged_at} [source: ${row!.source}]`,
             },
           ],
         };
@@ -255,7 +265,7 @@ const handler = createMcpHandler(
       async ({ id }) => {
         const result = await sql`
           DELETE FROM food_log WHERE id = ${id}
-          RETURNING id, name, calories, protein, carbs, fat, amount_g, logged_at
+          RETURNING id, name, calories, protein, carbs, fat, amount_g, logged_at, source
         `;
 
         if (result.length === 0) {
@@ -290,7 +300,7 @@ const handler = createMcpHandler(
         const endOfDay = new Date(startOfDay.getTime() + 86400000);
 
         const entries = await sql`
-          SELECT id, name, calories, protein, carbs, fat, amount_g, logged_at
+          SELECT id, name, calories, protein, carbs, fat, amount_g, logged_at, source
           FROM food_log
           WHERE logged_at >= ${startOfDay} AND logged_at < ${endOfDay}
           ORDER BY logged_at ASC
@@ -343,7 +353,7 @@ const handler = createMcpHandler(
         const endDate = new Date(end);
 
         const entries = await sql`
-          SELECT id, name, calories, protein, carbs, fat, amount_g, logged_at
+          SELECT id, name, calories, protein, carbs, fat, amount_g, logged_at, source
           FROM food_log
           WHERE logged_at >= ${startDate} AND logged_at < ${endDate}
           ORDER BY logged_at ASC
