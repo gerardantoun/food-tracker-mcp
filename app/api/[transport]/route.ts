@@ -175,7 +175,7 @@ const handler = createMcpHandler(
           content: [
             {
               type: "text",
-              text: `Logged: ${row!.name} (${row!.amount_g}g) — ${row!.calories} kcal, ${row!.protein}g protein, ${row!.carbs}g carbs, ${row!.fat}g fat at ${row!.logged_at}`,
+              text: `Logged ${row!.id}: ${row!.name} (${row!.amount_g}g) — ${row!.calories} kcal, ${row!.protein}g protein, ${row!.carbs}g carbs, ${row!.fat}g fat at ${row!.logged_at}`,
             },
           ],
         };
@@ -316,6 +316,60 @@ const handler = createMcpHandler(
 
         const result = {
           date: startOfDay.toISOString().split("T")[0],
+          entries,
+          totals: {
+            calories: round(totals.calories),
+            protein: round(totals.protein),
+            carbs: round(totals.carbs),
+            fat: round(totals.fat),
+          },
+        };
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+    );
+
+    server.tool(
+      "get_range",
+      "Get all food entries logged within a time range with per-item details and aggregated totals. Supports timezone offsets in ISO 8601 format (e.g. 2026-02-20T00:00:00-05:00).",
+      {
+        start: z.string().describe("ISO 8601 timestamp for the start of the range (inclusive)"),
+        end: z.string().describe("ISO 8601 timestamp for the end of the range (exclusive)"),
+      },
+      async ({ start, end }) => {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+
+        const entries = await sql`
+          SELECT id, name, calories, protein, carbs, fat, amount_g, logged_at
+          FROM food_log
+          WHERE logged_at >= ${startDate} AND logged_at < ${endDate}
+          ORDER BY logged_at ASC
+        `;
+
+        if (entries.length === 0) {
+          return {
+            content: [{ type: "text", text: "No food logged in this range." }],
+          };
+        }
+
+        const totals = entries.reduce(
+          (acc, e) => ({
+            calories: acc.calories + Number(e.calories),
+            protein: acc.protein + Number(e.protein),
+            carbs: acc.carbs + Number(e.carbs),
+            fat: acc.fat + Number(e.fat),
+          }),
+          { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        );
+
+        const round = (n: number) => Math.round(n * 10) / 10;
+
+        const result = {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
           entries,
           totals: {
             calories: round(totals.calories),
